@@ -1,0 +1,1 @@
+from .fastKCN import ConvNeXtFastKAN
