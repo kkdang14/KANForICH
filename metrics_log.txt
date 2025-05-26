@@ -1,0 +1,15 @@
+Test Loss: 0.0639
+Accuracy: 98.02%
+Classification Report:
+                       precision    recall  f1-score   support
+
+dieu-mua-truyen-thong       0.98      0.96      0.97        85
+        don-ca-tai-tu       0.95      0.98      0.97        86
+       dua-bo-bay-nui       1.00      1.00      1.00        84
+    le-hoi-nghinh-ong       0.99      0.98      0.98        99
+
+             accuracy                           0.98       354
+            macro avg       0.98      0.98      0.98       354
+         weighted avg       0.98      0.98      0.98       354
+
+

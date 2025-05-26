@@ -82,53 +82,6 @@ def validate(model, val_loader, criterion, device):
     
     return epoch_loss, epoch_acc
     
-
-# Testing function
-def test(model, test_loader, criterion, device, class_names, log_file='metrics_log.txt'):
-    model.eval()  # Set the model to evaluation mode
-    running_loss = 0.0
-    all_preds = []
-    all_labels = []
-
-    with torch.no_grad():  # Disable gradient tracking for testing
-        for inputs, labels in test_loader:
-            inputs, labels = inputs.to(device), labels.to(device)
-
-            # Forward pass to get predictions
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-
-            running_loss += loss.item() * inputs.size(0)
-
-            # Store predictions and true labels for metrics
-            _, predicted = outputs.max(1)
-            all_preds.extend(predicted.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
-
-    # Calculate overall loss
-    epoch_loss = running_loss / len(test_loader.dataset)
-
-    # Generate metrics (Precision, Recall, F1-score)
-    report = classification_report(all_labels, all_preds, target_names=class_names, output_dict=True)
-    accuracy = report['accuracy'] * 100  # Accuracy in percentage
-
-    # Save the metrics to a log file
-    with open(log_file, 'a') as f:
-        f.write(f'Test Loss: {epoch_loss:.4f}\n')
-        f.write(f'Accuracy: {accuracy:.2f}%\n')
-        f.write('Classification Report:\n')
-        f.write(classification_report(all_labels, all_preds, target_names=class_names))
-        f.write('\n\n')
-
-    print(f'Test Loss: {epoch_loss:.4f}, Accuracy: {accuracy:.2f}%')
-
-    # Create and save the confusion matrix
-    conf_matrix = confusion_matrix(all_labels, all_preds)
-    plot_confusion_matrix(conf_matrix, class_names)
-    
-    return epoch_loss, accuracy, report
-
-
 def main():
     # Set up device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -157,8 +110,7 @@ def main():
 
     # DataLoaders
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=0)
-    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=0)
+    val_loader = DataLoader(val_dataset, batch_size=64, shuffle=True, num_workers=0)
 
     class_names = train_dataset.classes
     num_classes = len(class_names)
@@ -172,7 +124,7 @@ def main():
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
 
     # Training loop
-    num_epochs = 20
+    num_epochs = 5
     best_val_loss = float('inf')
     best_model_path = 'best_convnext_kan.pth'
     
@@ -207,9 +159,6 @@ def main():
     # Load best model for testing
     model.load_state_dict(torch.load(best_model_path))
     
-    print("\nTesting the best model:")
-    test_loss, test_acc, test_report = test(model, test_loader, criterion, device, class_names)
-    
     # Plot training history
     plt.figure(figsize=(12, 5))
     
@@ -233,15 +182,6 @@ def main():
     plt.savefig('training_history.png')
     plt.close()
     
-    # Print class-wise metrics
-    print("\nClass-wise metrics:")
-    for cls in class_names:
-        print(f"\nClass: {cls}")
-        print(f"Precision: {test_report[cls]['precision']:.4f}")
-        print(f"Recall: {test_report[cls]['recall']:.4f}")
-        print(f"F1-score: {test_report[cls]['f1-score']:.4f}")
-    
-    print(f"\nOverall Test Accuracy: {test_acc:.2f}%")
     print(f"Best model saved as '{best_model_path}'")
 
 

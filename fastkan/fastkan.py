@@ -76,13 +76,6 @@ class FastKANLayer(nn.Module):
         num_pts: int = 1000,
         num_extrapolate_bins: int = 2
     ):
-        '''this function returns the learned curves in a FastKANLayer.
-        input_index: the selected index of the input, in [0, input_dim) .
-        output_index: the selected index of the output, in [0, output_dim) .
-        num_pts: num of points sampled for the curve.
-        num_extrapolate_bins (N_e): num of bins extrapolating from the given grids. The curve 
-            will be calculate in the range of [grid_min - h * N_e, grid_max + h * N_e].
-        '''
         ng = self.rbf.num_grids
         h = self.rbf.denominator
         assert input_index < self.input_dim

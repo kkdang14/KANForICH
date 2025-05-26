@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 from fastKCN import ConvNeXtFastKAN
 
-def plot_confusion_matrix(cm, class_names, filename='confusion_matrix.png'):
+def plot_confusion_matrix(cm, class_names, filename='confusion_matrix_fast.png'):
     """Plots and saves the confusion matrix as an image."""
     plt.figure(figsize=(10, 7))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
@@ -20,7 +20,6 @@ def plot_confusion_matrix(cm, class_names, filename='confusion_matrix.png'):
     plt.title('Confusion Matrix')
     plt.savefig(filename)
     plt.close()
-
 
 # Training function
 def train(model, train_loader, criterion, optimizer, device):
@@ -54,7 +53,6 @@ def train(model, train_loader, criterion, optimizer, device):
     print(f'Train Loss: {epoch_loss:.4f}, Accuracy: {epoch_acc:.2f}%')
     return epoch_loss, epoch_acc
     
-    
 def validate(model, val_loader, criterion, device):
     model.eval()  # Set the model to evaluation mode
     running_loss = 0.0
@@ -81,53 +79,6 @@ def validate(model, val_loader, criterion, device):
     print(f'Validation Loss: {epoch_loss:.4f}, Accuracy: {epoch_acc:.2f}%')
     
     return epoch_loss, epoch_acc
-    
-
-# Testing function
-def test(model, test_loader, criterion, device, class_names, log_file='metrics_log.txt'):
-    model.eval()  # Set the model to evaluation mode
-    running_loss = 0.0
-    all_preds = []
-    all_labels = []
-
-    with torch.no_grad():  # Disable gradient tracking for testing
-        for inputs, labels in test_loader:
-            inputs, labels = inputs.to(device), labels.to(device)
-
-            # Forward pass to get predictions
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-
-            running_loss += loss.item() * inputs.size(0)
-
-            # Store predictions and true labels for metrics
-            _, predicted = outputs.max(1)
-            all_preds.extend(predicted.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
-
-    # Calculate overall loss
-    epoch_loss = running_loss / len(test_loader.dataset)
-
-    # Generate metrics (Precision, Recall, F1-score)
-    report = classification_report(all_labels, all_preds, target_names=class_names, output_dict=True)
-    accuracy = report['accuracy'] * 100  # Accuracy in percentage
-
-    # Save the metrics to a log file
-    with open(log_file, 'a') as f:
-        f.write(f'Test Loss: {epoch_loss:.4f}\n')
-        f.write(f'Accuracy: {accuracy:.2f}%\n')
-        f.write('Classification Report:\n')
-        f.write(classification_report(all_labels, all_preds, target_names=class_names))
-        f.write('\n\n')
-
-    print(f'Test Loss: {epoch_loss:.4f}, Accuracy: {accuracy:.2f}%')
-
-    # Create and save the confusion matrix
-    conf_matrix = confusion_matrix(all_labels, all_preds)
-    plot_confusion_matrix(conf_matrix, class_names)
-    
-    return epoch_loss, accuracy, report
-
 
 def main():
     # Set up device
@@ -149,16 +100,16 @@ def main():
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     ])
 
-    # Datasets
-    data_dir = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\data'
+    # Datasets - use a more generic path approach
+    data_dir = os.path.join(os.getcwd(), 'data')  # Assuming data folder is in current directory
+    print(f"Looking for data in: {data_dir}")
+    
     train_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'train'), transform=train_transform)
     val_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'val'), transform=test_transform)
-    test_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'test'), transform=test_transform)
 
     # DataLoaders
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=0)
-    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=0)
 
     class_names = train_dataset.classes
     num_classes = len(class_names)
@@ -166,15 +117,22 @@ def main():
     print(f"Dataset classes: {class_names} (total: {num_classes})")
 
     # Model, Loss, and Optimizer
-    model = ConvNeXtFastKAN().to(device)
+    # Make sure the model's output matches the number of classes in your dataset
+    model = ConvNeXtFastKAN(num_classes=4).to(device)
+    
+    # Update the FastKAN architecture to match your number of classes if needed
+    if hasattr(model, 'fastkan') and model.fastkan.layers[-1].output_dim != num_classes:
+        print(f"Warning: Model output dimension ({model.fastkan.layers[-1].output_dim})" 
+            f"doesn't match number of classes ({num_classes}). Please update the model.")
+    
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
 
     # Training loop
-    num_epochs = 20
+    num_epochs = 5
     best_val_loss = float('inf')
-    best_model_path = 'best_convnext_kan.pth'
+    best_model_path = 'best_convnext_fastkan.pth'
     
     # Metrics tracking
     train_losses = []
@@ -206,10 +164,7 @@ def main():
 
     # Load best model for testing
     model.load_state_dict(torch.load(best_model_path))
-    
-    # Final test
-    print("\nTesting the best model:")
-    test_loss, test_acc, test_report = test(model, test_loader, criterion, device, class_names)
+
     
     # Plot training history
     plt.figure(figsize=(12, 5))
@@ -231,18 +186,9 @@ def main():
     plt.title('Training and Validation Accuracy')
     
     plt.tight_layout()
-    plt.savefig('training_history.png')
+    plt.savefig('training_history_fast.png')
     plt.close()
     
-    # Print class-wise metrics
-    print("\nClass-wise metrics:")
-    for cls in class_names:
-        print(f"\nClass: {cls}")
-        print(f"Precision: {test_report[cls]['precision']:.4f}")
-        print(f"Recall: {test_report[cls]['recall']:.4f}")
-        print(f"F1-score: {test_report[cls]['f1-score']:.4f}")
-    
-    print(f"\nOverall Test Accuracy: {test_acc:.2f}%")
     print(f"Best model saved as '{best_model_path}'")
 
 

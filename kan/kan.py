@@ -6,11 +6,11 @@ import math
 class KANLinear(nn.Module):
     def __init__(
         self,
-        in_features,
-        out_features,
+        in_features=3,
+        out_features=2,
         grid_size=5,
         spline_order=3,
-        scale_noise=0.1,
+        scale_noise=0.5,
         scale_base=1.0,
         scale_spline=1.0,
         enable_standalone_scale_spline=True,
