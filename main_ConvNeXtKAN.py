@@ -9,7 +9,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from kcn import ConvNeXtKAN
+from KAN_model.ConvnextKAN import ConvNeXtKAN  # Assuming ConvNeXtKAN is defined in ConvnextKAN.py
 
 def plot_confusion_matrix(cm, class_names, filename='confusion_matrix.png'):
     """Plots and saves the confusion matrix as an image."""

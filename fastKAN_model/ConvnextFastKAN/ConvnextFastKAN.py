@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import gc
 import math
 
-from fastkan import FastKAN
+from version.fastkan.fastkan import FastKAN  # Assuming FastKAN is defined in fastkan.py
 from sklearn.metrics import classification_report, confusion_matrix
 
 class ConvNeXtFastKAN(nn.Module):

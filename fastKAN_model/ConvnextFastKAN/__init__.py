@@ -1,0 +1,1 @@
+from .ConvnextFastKAN import ConvNeXtFastKAN

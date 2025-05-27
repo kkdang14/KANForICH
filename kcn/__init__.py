@@ -1,1 +1,0 @@
-from .kcn import ConvNeXtKAN

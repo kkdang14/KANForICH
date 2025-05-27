@@ -8,7 +8,7 @@ import gc
 import matplotlib.pyplot as plt
 import math
 
-from kan import KANLinear
+from version.kan.kan import KANLinear
 
 class ConvNeXtKAN(nn.Module):
     def __init__(self):

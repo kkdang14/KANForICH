@@ -9,7 +9,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from fastKCN import ConvNeXtFastKAN
+from fastKAN_model.ConvnextFastKAN import ConvNeXtFastKAN  # Assuming ConvNeXtFastKAN is defined in fastKCN.py
 
 def plot_confusion_matrix(cm, class_names, filename='confusion_matrix_fast.png'):
     """Plots and saves the confusion matrix as an image."""
