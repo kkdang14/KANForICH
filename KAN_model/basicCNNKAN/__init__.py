@@ -1,1 +1,1 @@
-from .basicCNNKAN import BasicCNNKAN
+from .BasicCNNKAN import BasicCNNKAN

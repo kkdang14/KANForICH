@@ -1,1 +1,1 @@
-from .basciCNNFastKAN import BasicCNNFastKAN
+from .BasciCNNFastKAN import BasicCNNFastKAN

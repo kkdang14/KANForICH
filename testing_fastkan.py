@@ -745,7 +745,7 @@ def main():
     class_names = ["dieu_mua_truyen_thong", "don_ca_tai_tu", "dua_bo_bay_nui", "le_hoi_nghinh_ong"]  # Define your class names
     
     classifier_pred = ImageClassifier(
-        model_path=r"C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\test\testmodel\best_convnext_fastkan.pth",
+        model_path=r"C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\model\best_convnext_fastkan.pth",
         data_dir=r"C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\data\test",  # Single folder with images
         output_dir=r"C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\test\prediction_results_for_basic_data_fastkan",
         class_names=class_names,

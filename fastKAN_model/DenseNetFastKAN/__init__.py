@@ -1,0 +1,1 @@
+from .DenseNetFastKAN import DenseNetFastKAN

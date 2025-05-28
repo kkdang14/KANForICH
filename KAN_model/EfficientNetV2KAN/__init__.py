@@ -1,0 +1,1 @@
+from .EfficientNetV2KAN import EfficientNetV2KAN

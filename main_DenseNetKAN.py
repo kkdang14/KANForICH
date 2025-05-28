@@ -9,7 +9,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from KAN_model.BasicCNNKAN import BasicCNNKAN  # Assuming BasicCNNKAN is defined in basicCNNKAN.py
+from KAN_model.DenseNetKAN import DenseNetKAN  
 
 def plot_confusion_matrix(cm, class_names, filename='confusion_matrix.png'):
     """Plots and saves the confusion matrix as an image."""
@@ -91,16 +91,15 @@ def main():
     train_transform = transforms.Compose([
         transforms.Resize(224),
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),  # Standard normalization for pre-trained models
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),  
     ])
-    
+
     val_transform = transforms.Compose([
         transforms.Resize((256, 256)),     
         transforms.CenterCrop(224),         
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
-
 
     # Datasets
     data_dir = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\data'
@@ -117,7 +116,7 @@ def main():
     print(f"Dataset classes: {class_names} (total: {num_classes})")
 
     # Model, Loss, and Optimizer
-    model = BasicCNNKAN().to(device)
+    model = DenseNetKAN().to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
@@ -125,7 +124,7 @@ def main():
     # Training loop
     num_epochs = 5
     best_val_loss = float('inf')
-    best_model_path = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\model\cnn_kan_best_model.pth'
+    best_model_path = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\model\densenet_kan_best_model.pth'
     
     # Metrics tracking
     train_losses = []
@@ -178,7 +177,7 @@ def main():
     plt.title('Training and Validation Accuracy')
     
     plt.tight_layout()
-    training_history_path = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\training_result\CNN_KAN_training_history.png'
+    training_history_path = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\training_result\DenseNet_KAN_training_history.png'
     plt.savefig(training_history_path)
     plt.close()
     

@@ -7,24 +7,33 @@ import matplotlib.pyplot as plt
 import gc
 import math
 
-from version.fastkan.fastkan import FastKAN  # Assuming FastKAN is defined in fastkan.py
+from version.fastkan.fastkan import FastKAN  # For FastKAN version
 from sklearn.metrics import classification_report, confusion_matrix
 
-class ConvNeXtFastKAN(nn.Module):
-    def __init__(self, hidden_dims=None, num_classes=2, pretrained=True, freeze_backbone=True):
-        super(ConvNeXtFastKAN, self).__init__()
+class DenseNetFastKAN(nn.Module):
+    def __init__(self, hidden_dims=None, num_classes=10, pretrained=True, freeze_backbone=True, densenet_version='121'):
+        super(DenseNetFastKAN, self).__init__()
         
-        # Load pre-trained ConvNeXt model
-        self.convnext = models.convnext_tiny(pretrained=pretrained)
+        # Load pre-trained DenseNet model
+        if densenet_version == '121':
+            self.densenet = models.densenet121(pretrained=pretrained)
+        elif densenet_version == '161':
+            self.densenet = models.densenet161(pretrained=pretrained)
+        elif densenet_version == '169':
+            self.densenet = models.densenet169(pretrained=pretrained)
+        elif densenet_version == '201':
+            self.densenet = models.densenet201(pretrained=pretrained)
+        else:
+            raise ValueError(f"Unsupported DenseNet version: {densenet_version}")
 
-        # Freeze ConvNeXt layers if specified
+        # Freeze DenseNet layers if specified
         if freeze_backbone:
-            for param in self.convnext.parameters():
+            for param in self.densenet.parameters():
                 param.requires_grad = False
 
-        # Get the feature dimension from ConvNeXt
-        num_features = self.convnext.classifier[2].in_features
-        self.convnext.classifier = nn.Identity()  # Remove the classifier
+        # Get the feature dimension from DenseNet classifier
+        num_features = self.densenet.classifier.in_features
+        self.densenet.classifier = nn.Identity()  # Remove the classifier
         
         # Default hidden dimensions if not provided
         if hidden_dims is None:
@@ -43,20 +52,32 @@ class ConvNeXtFastKAN(nn.Module):
         )
 
     def forward(self, x):
-        x = self.convnext(x)
+        x = self.densenet(x)
         x = x.view(x.size(0), -1)  # Flatten the tensor
         x = self.fastkan(x)
         return x
 
 def print_parameter_details(model):
     total_params = 0
-    for name, parameter in model.named_parameters():
-        if parameter.requires_grad:
-            params = parameter.numel()  # Number of elements in the tensor
-            total_params += params
-            print(f"{name}: {params}")
-    print(f"Total trainable parameters: {total_params}")
+    trainable_params = 0
     
+    print("Layer-wise parameter count:")
+    print("-" * 60)
+    
+    for name, parameter in model.named_parameters():
+        params = parameter.numel()
+        total_params += params
+        
+        if parameter.requires_grad:
+            trainable_params += params
+            print(f"{name}: {params:,} (trainable)")
+        else:
+            print(f"{name}: {params:,} (frozen)")
+    
+    print("-" * 60)
+    print(f"Total parameters: {total_params:,}")
+    print(f"Trainable parameters: {trainable_params:,}")
+    print(f"Non-trainable parameters: {total_params - trainable_params:,}")
 
 def count_model_size(model):
     """Calculate model size in MB"""
@@ -72,9 +93,11 @@ def count_model_size(model):
     size_mb = (param_size + buffer_size) / 1024 / 1024
     return size_mb
 
+# Initialize device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = ConvNeXtFastKAN().to(device)
-print(model)
+print(f"Using device: {device}")
+model = DenseNetFastKAN().to(device)
+print(model)    
 print_parameter_details(model)
 count_model_size(model)
 print(f"Model size: {count_model_size(model):.2f} MB")
@@ -90,4 +113,4 @@ gc.collect()
 if torch.cuda.is_available():
     torch.cuda.empty_cache()
     
-print("Done! ConvNeXt + FastKAN implementation complete.")
+print("Done! DenseNet + FastKAN implementation complete.")

@@ -9,9 +9,9 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from KAN_model.BasicCNNKAN import BasicCNNKAN  # Assuming BasicCNNKAN is defined in basicCNNKAN.py
+from FastKAN_model.DenseNetFastKAN import DenseNetFastKAN 
 
-def plot_confusion_matrix(cm, class_names, filename='confusion_matrix.png'):
+def plot_confusion_matrix(cm, class_names, filename='confusion_matrix_fast.png'):
     """Plots and saves the confusion matrix as an image."""
     plt.figure(figsize=(10, 7))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
@@ -20,7 +20,6 @@ def plot_confusion_matrix(cm, class_names, filename='confusion_matrix.png'):
     plt.title('Confusion Matrix')
     plt.savefig(filename)
     plt.close()
-
 
 # Training function
 def train(model, train_loader, criterion, optimizer, device):
@@ -54,7 +53,6 @@ def train(model, train_loader, criterion, optimizer, device):
     print(f'Train Loss: {epoch_loss:.4f}, Accuracy: {epoch_acc:.2f}%')
     return epoch_loss, epoch_acc
     
-    
 def validate(model, val_loader, criterion, device):
     model.eval()  # Set the model to evaluation mode
     running_loss = 0.0
@@ -81,7 +79,7 @@ def validate(model, val_loader, criterion, device):
     print(f'Validation Loss: {epoch_loss:.4f}, Accuracy: {epoch_acc:.2f}%')
     
     return epoch_loss, epoch_acc
-    
+
 def main():
     # Set up device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -93,7 +91,7 @@ def main():
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),  # Standard normalization for pre-trained models
     ])
-    
+
     val_transform = transforms.Compose([
         transforms.Resize((256, 256)),     
         transforms.CenterCrop(224),         
@@ -102,14 +100,16 @@ def main():
     ])
 
 
-    # Datasets
-    data_dir = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\data'
+    # Datasets - use a more generic path approach
+    data_dir = os.path.join(os.getcwd(), 'data')  # Assuming data folder is in current directory
+    print(f"Looking for data in: {data_dir}")
+    
     train_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'train'), transform=train_transform)
     val_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'val'), transform=val_transform)
 
     # DataLoaders
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=64, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=0)
 
     class_names = train_dataset.classes
     num_classes = len(class_names)
@@ -117,7 +117,14 @@ def main():
     print(f"Dataset classes: {class_names} (total: {num_classes})")
 
     # Model, Loss, and Optimizer
-    model = BasicCNNKAN().to(device)
+    # Make sure the model's output matches the number of classes in your dataset
+    model = DenseNetFastKAN(num_classes = num_classes).to(device)
+    
+    # Update the FastKAN architecture to match your number of classes if needed
+    if hasattr(model, 'fastkan') and model.fastkan.layers[-1].output_dim != num_classes:
+        print(f"Warning: Model output dimension ({model.fastkan.layers[-1].output_dim})" 
+            f"doesn't match number of classes ({num_classes}). Please update the model.")
+    
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
@@ -125,7 +132,7 @@ def main():
     # Training loop
     num_epochs = 5
     best_val_loss = float('inf')
-    best_model_path = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\model\cnn_kan_best_model.pth'
+    best_model_path = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\model\densenet_fastkan_best_model.pth'
     
     # Metrics tracking
     train_losses = []
@@ -157,6 +164,7 @@ def main():
 
     # Load best model for testing
     model.load_state_dict(torch.load(best_model_path))
+
     
     # Plot training history
     plt.figure(figsize=(12, 5))
@@ -178,7 +186,7 @@ def main():
     plt.title('Training and Validation Accuracy')
     
     plt.tight_layout()
-    training_history_path = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\training_result\CNN_KAN_training_history.png'
+    training_history_path = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\training_result\DenseNet_FastKAN_training_history.png'
     plt.savefig(training_history_path)
     plt.close()
     

@@ -89,24 +89,23 @@ def main():
 
     # Transformations for training and testing data
     train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(224),
-        transforms.RandomHorizontalFlip(),
+        transforms.Resize(224),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),  # Standard normalization for pre-trained models
     ])
-
-    test_transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
+    
+    val_transform = transforms.Compose([
+        transforms.Resize((256, 256)),     
+        transforms.CenterCrop(224),         
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
+
 
     # Datasets
     data_dir = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\data'
     train_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'train'), transform=train_transform)
-    val_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'val'), transform=test_transform)
-    test_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'test'), transform=test_transform)
+    val_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'val'), transform=val_transform)
 
     # DataLoaders
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=0)
@@ -126,7 +125,7 @@ def main():
     # Training loop
     num_epochs = 5
     best_val_loss = float('inf')
-    best_model_path = 'best_convnext_kan.pth'
+    best_model_path = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\model\convnext_kan_best_model.pth'
     
     # Metrics tracking
     train_losses = []
@@ -179,7 +178,8 @@ def main():
     plt.title('Training and Validation Accuracy')
     
     plt.tight_layout()
-    plt.savefig('training_history.png')
+    training_history_path = r'C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\training_result\ConvNext_KAN_training_history.png'
+    plt.savefig(training_history_path)
     plt.close()
     
     print(f"Best model saved as '{best_model_path}'")

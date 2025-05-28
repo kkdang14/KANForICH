@@ -10,21 +10,21 @@ import math
 from version.fastkan.fastkan import FastKAN  # Assuming FastKAN is defined in fastkan.py
 from sklearn.metrics import classification_report, confusion_matrix
 
-class ConvNeXtFastKAN(nn.Module):
+class EfficientNetV2FastKAN(nn.Module):
     def __init__(self, hidden_dims=None, num_classes=2, pretrained=True, freeze_backbone=True):
-        super(ConvNeXtFastKAN, self).__init__()
+        super(EfficientNetV2FastKAN, self).__init__()
         
-        # Load pre-trained ConvNeXt model
-        self.convnext = models.convnext_tiny(pretrained=pretrained)
+        # Load pre-trained EfficientNetV2 model
+        self.efficientnet = models.efficientnet_v2_s(pretrained=pretrained)
 
-        # Freeze ConvNeXt layers if specified
+        # Freeze EfficientNetV2 layers if specified
         if freeze_backbone:
-            for param in self.convnext.parameters():
+            for param in self.efficientnet.parameters():
                 param.requires_grad = False
 
-        # Get the feature dimension from ConvNeXt
-        num_features = self.convnext.classifier[2].in_features
-        self.convnext.classifier = nn.Identity()  # Remove the classifier
+        # Get the feature dimension from EfficientNetV2
+        num_features = self.efficientnet.classifier[1].in_features
+        self.efficientnet.classifier = nn.Identity()  # Remove the classifier
         
         # Default hidden dimensions if not provided
         if hidden_dims is None:
@@ -43,7 +43,7 @@ class ConvNeXtFastKAN(nn.Module):
         )
 
     def forward(self, x):
-        x = self.convnext(x)
+        x = self.efficientnet(x)
         x = x.view(x.size(0), -1)  # Flatten the tensor
         x = self.fastkan(x)
         return x
@@ -56,7 +56,6 @@ def print_parameter_details(model):
             total_params += params
             print(f"{name}: {params}")
     print(f"Total trainable parameters: {total_params}")
-    
 
 def count_model_size(model):
     """Calculate model size in MB"""
@@ -73,7 +72,7 @@ def count_model_size(model):
     return size_mb
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = ConvNeXtFastKAN().to(device)
+model = EfficientNetV2FastKAN().to(device)
 print(model)
 print_parameter_details(model)
 count_model_size(model)
@@ -90,4 +89,4 @@ gc.collect()
 if torch.cuda.is_available():
     torch.cuda.empty_cache()
     
-print("Done! ConvNeXt + FastKAN implementation complete.")
+print("Done! EfficientNetV2 + FastKAN implementation complete.")

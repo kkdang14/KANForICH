@@ -10,25 +10,25 @@ import math
 
 from version.kan.kan import KANLinear
 
-class ConvNeXtKAN(nn.Module):
+class EfficientNetV2KAN(nn.Module):
     def __init__(self):
-        super(ConvNeXtKAN, self).__init__()
-        # Load pre-trained ConvNeXt model
-        self.convnext = models.convnext_tiny(pretrained=True)
+        super(EfficientNetV2KAN, self).__init__()
+        # Load pre-trained EfficientNetV2 model
+        self.efficientnet = models.efficientnet_v2_s(pretrained=True)
 
-        # Freeze ConvNeXt layers (if required)
-        for param in self.convnext.parameters():
+        # Freeze EfficientNetV2 layers (if required)
+        for param in self.efficientnet.parameters():
             param.requires_grad = False
 
-        # Modify the classifier part of ConvNeXt
-        num_features = self.convnext.classifier[2].in_features
-        self.convnext.classifier = nn.Identity()
+        # Modify the classifier part of EfficientNetV2
+        num_features = self.efficientnet.classifier[1].in_features
+        self.efficientnet.classifier = nn.Identity()
 
         self.kan1 = KANLinear(num_features, 256)
         self.kan2 = KANLinear(256, 10)
 
     def forward(self, x):
-        x = self.convnext(x)
+        x = self.efficientnet(x)
         x = x.view(x.size(0), -1)  # Flatten the tensor
         x = self.kan1(x)
         x = self.kan2(x)
@@ -59,7 +59,7 @@ def count_model_size(model):
     return size_mb
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = ConvNeXtKAN().to(device)
+model = EfficientNetV2KAN().to(device)
 print(model)
 print_parameter_details(model)
 count_model_size(model)
@@ -76,4 +76,4 @@ gc.collect()
 if torch.cuda.is_available():
     torch.cuda.empty_cache()
     
-print("Done! ConvNeXt + FastKAN implementation complete.")
+print("Done! EfficientNetV2 + Regular KAN implementation complete.")
