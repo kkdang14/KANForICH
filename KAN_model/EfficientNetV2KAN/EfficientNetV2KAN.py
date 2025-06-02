@@ -6,7 +6,6 @@ from torch.utils.data import DataLoader
 from torchsummary import summary
 import gc
 import matplotlib.pyplot as plt
-import math
 
 from version.kan.kan import KANLinear
 
@@ -25,7 +24,7 @@ class EfficientNetV2KAN(nn.Module):
         self.efficientnet.classifier = nn.Identity()
 
         self.kan1 = KANLinear(num_features, 256)
-        self.kan2 = KANLinear(256, 10)
+        self.kan2 = KANLinear(256, 11)
 
     def forward(self, x):
         x = self.efficientnet(x)

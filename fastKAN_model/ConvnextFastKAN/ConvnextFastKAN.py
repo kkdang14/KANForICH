@@ -11,7 +11,7 @@ from version.fastkan.fastkan import FastKAN  # Assuming FastKAN is defined in fa
 from sklearn.metrics import classification_report, confusion_matrix
 
 class ConvNeXtFastKAN(nn.Module):
-    def __init__(self, hidden_dims=None, num_classes=2, pretrained=True, freeze_backbone=True):
+    def __init__(self, hidden_dims=None, num_classes=20, pretrained=True, freeze_backbone=True):
         super(ConvNeXtFastKAN, self).__init__()
         
         # Load pre-trained ConvNeXt model

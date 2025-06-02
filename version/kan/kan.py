@@ -190,3 +190,4 @@ class KANLinear(nn.Module):
             regularize_activation * regularization_loss_activation
             + regularize_entropy * regularization_loss_entropy
         )   
+        

@@ -5,21 +5,10 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 import os
 from sklearn.metrics import classification_report, confusion_matrix
-import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 from KAN_model.BasicCNNKAN import BasicCNNKAN  # Assuming BasicCNNKAN is defined in basicCNNKAN.py
-
-def plot_confusion_matrix(cm, class_names, filename='confusion_matrix.png'):
-    """Plots and saves the confusion matrix as an image."""
-    plt.figure(figsize=(10, 7))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
-    plt.xlabel('Predicted Labels')
-    plt.ylabel('True Labels')
-    plt.title('Confusion Matrix')
-    plt.savefig(filename)
-    plt.close()
 
 
 # Training function
@@ -87,17 +76,16 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # Transformations for training and testing data
+    # Transformations for training
     train_transform = transforms.Compose([
-        transforms.Resize(224),
+        transforms.RandomResizedCrop(224),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),  # Standard normalization for pre-trained models
     ])
     
     val_transform = transforms.Compose([
-        transforms.Resize((256, 256)),     
-        transforms.CenterCrop(224),         
-        transforms.ToTensor(),
+        transforms.Resize((224, 224)),       # Cố định
+        transforms.ToTensor(),               # Không flip
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
 
@@ -120,7 +108,7 @@ def main():
     model = BasicCNNKAN().to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)
 
     # Training loop
     num_epochs = 5

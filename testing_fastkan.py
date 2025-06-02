@@ -11,13 +11,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import os
-import shutil
 from PIL import Image
-import json
 from datetime import datetime
 import glob
 
-from fastKCN import ConvNeXtFastKAN  # Import your model
+from FastKAN_model.ConvnextFastKAN import ConvNeXtFastKAN 
+from FastKAN_model.DenseNetFastKAN import DenseNetFastKAN
+from FastKAN_model.EfficientNetV2FastKAN import EfficientNetV2FastKAN
+from FastKAN_model.BasicCNNFastKAN import BasicCNNFastKAN
 
 class FlexibleDataset(Dataset):
     """Dataset that can handle both structured (with labels) and single folder (without labels)"""
@@ -97,19 +98,10 @@ class FlexibleDataset(Dataset):
                 return dummy_image, image_path
 
 
-class ImageClassifier:
+class SimpleImageEvaluator:
     def __init__(self, model_path, data_dir, output_dir, class_names=None, 
-                 has_ground_truth=False, device=None, batch_size=32):
-        """
-        Args:
-            model_path: path to trained model
-            data_dir: folder containing images
-            output_dir: folder to save results
-            class_names: list of class names (required if has_ground_truth=False)
-            has_ground_truth: True if data has structured folders with labels
-            device: computing device
-            batch_size: batch size for processing
-        """
+                has_ground_truth=True, device=None, batch_size=32):
+        
         self.model_path = model_path
         self.data_dir = data_dir
         self.output_dir = output_dir
@@ -122,15 +114,12 @@ class ImageClassifier:
         else:
             self.device = device
             
-        # Create output directories
+        # Create output directory
         os.makedirs(output_dir, exist_ok=True)
-        self.classified_dir = os.path.join(output_dir, "classified_images")
-        os.makedirs(self.classified_dir, exist_ok=True)
         
         # Setup class names
         if has_ground_truth:
-            # Will be set when loading data
-            self.class_names = None
+            self.class_names = None 
         else:
             if class_names is None:
                 raise ValueError("class_names must be provided when has_ground_truth=False")
@@ -140,15 +129,13 @@ class ImageClassifier:
         print(f"Model: {model_path}")
         print(f"Data folder: {data_dir}")
         print(f"Output: {output_dir}")
-        print(f"Has ground truth: {has_ground_truth}")
         
     def prepare_data(self):
         """Prepare data loader"""
-        transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        transform =  transforms.Compose([
+            transforms.Resize((224, 224)),       # Cố định
+            transforms.ToTensor(),               # Không flip
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
         
         self.dataset = FlexibleDataset(
@@ -163,51 +150,35 @@ class ImageClassifier:
         self.num_classes = len(self.class_names)
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=False)
         
-        # Create folders for each class
-        for class_name in self.class_names:
-            class_dir = os.path.join(self.classified_dir, class_name)
-            os.makedirs(class_dir, exist_ok=True)
-        
         print(f"Classes: {self.class_names}")
         print(f"Loaded {len(self.dataset)} images")
         
     def load_model(self):
         """Load trained model"""
-        self.model = ConvNeXtFastKAN(num_classes=self.num_classes).to(self.device)
+        self.model = EfficientNetV2FastKAN(num_classes=11).to(self.device)
         self.model.load_state_dict(torch.load(self.model_path, map_location=self.device))
         self.model.eval()
         print("Model loaded successfully")
     
-    def predict_and_evaluate(self):
-        """Predict and evaluate if ground truth is available"""
+    def predict(self):
+        """Run model predictions"""
         all_predictions = []
-        all_probabilities = []
-        all_confidences = []
-        all_image_paths = []
-        all_true_labels = [] if self.has_ground_truth else None
+        all_true_labels = []
         
         print("Starting prediction...")
         
         with torch.no_grad():
             for batch_idx, batch_data in enumerate(self.dataloader):
-                if self.has_ground_truth:
-                    images, true_labels, image_paths = batch_data
-                    all_true_labels.extend(true_labels.cpu().numpy())
-                else:
-                    images, image_paths = batch_data
+                images, true_labels, image_paths = batch_data
+                all_true_labels.extend(true_labels.cpu().numpy())
                 
                 images = images.to(self.device)
                 
                 # Forward pass
                 outputs = self.model(images)
-                probs = torch.softmax(outputs, dim=1)
-                confidences, predicted = torch.max(probs, 1)
+                _, predicted = torch.max(outputs, 1)
                 
-                # Store results
                 all_predictions.extend(predicted.cpu().numpy())
-                all_probabilities.extend(probs.cpu().numpy())
-                all_confidences.extend(confidences.cpu().numpy())
-                all_image_paths.extend(image_paths)
                 
                 # Progress update
                 if (batch_idx + 1) % 10 == 0:
@@ -215,499 +186,223 @@ class ImageClassifier:
                     print(f"Processed {processed}/{len(self.dataset)} images...")
         
         self.all_predictions = np.array(all_predictions)
-        self.all_probabilities = np.array(all_probabilities)
-        self.all_confidences = np.array(all_confidences)
-        self.all_image_paths = all_image_paths
-        self.all_true_labels = np.array(all_true_labels) if all_true_labels else None
+        self.all_true_labels = np.array(all_true_labels)
         
         print("Prediction completed!")
-        
-        # Calculate metrics if ground truth available
-        if self.has_ground_truth:
-            self.calculate_metrics()
-        
-        # Organize images
-        self.organize_images()
     
     def calculate_metrics(self):
-        """Calculate evaluation metrics"""
-        if not self.has_ground_truth:
-            print("Cannot calculate metrics without ground truth labels")
-            return
-        
-        print(f"\n{'='*60}")
+        """Calculate core evaluation metrics"""
+        print(f"\n{'='*70}")
         print("EVALUATION METRICS")
-        print(f"{'='*60}")
+        print(f"{'='*70}")
         
-        # Overall metrics
+        # Core metrics
         self.accuracy = accuracy_score(self.all_true_labels, self.all_predictions)
+        
+        # Precision
         self.precision_macro = precision_score(self.all_true_labels, self.all_predictions, average='macro', zero_division=0)
         self.precision_micro = precision_score(self.all_true_labels, self.all_predictions, average='micro', zero_division=0)
         self.precision_weighted = precision_score(self.all_true_labels, self.all_predictions, average='weighted', zero_division=0)
+        self.precision_per_class = precision_score(self.all_true_labels, self.all_predictions, average=None, zero_division=0)
         
+        # Recall
         self.recall_macro = recall_score(self.all_true_labels, self.all_predictions, average='macro', zero_division=0)
         self.recall_micro = recall_score(self.all_true_labels, self.all_predictions, average='micro', zero_division=0)
         self.recall_weighted = recall_score(self.all_true_labels, self.all_predictions, average='weighted', zero_division=0)
+        self.recall_per_class = recall_score(self.all_true_labels, self.all_predictions, average=None, zero_division=0)
         
+        # F1-Score
         self.f1_macro = f1_score(self.all_true_labels, self.all_predictions, average='macro', zero_division=0)
         self.f1_micro = f1_score(self.all_true_labels, self.all_predictions, average='micro', zero_division=0)
         self.f1_weighted = f1_score(self.all_true_labels, self.all_predictions, average='weighted', zero_division=0)
-        
-        # Per-class metrics
-        self.precision_per_class = precision_score(self.all_true_labels, self.all_predictions, average=None, zero_division=0)
-        self.recall_per_class = recall_score(self.all_true_labels, self.all_predictions, average=None, zero_division=0)
         self.f1_per_class = f1_score(self.all_true_labels, self.all_predictions, average=None, zero_division=0)
         
         # Confusion matrix
         self.cm = confusion_matrix(self.all_true_labels, self.all_predictions)
         
-        # Classification report
-        self.classification_rep = classification_report(
-            self.all_true_labels, self.all_predictions, 
-            target_names=self.class_names, zero_division=0, output_dict=True
-        )
-        
         # Print results
         print(f"Overall Metrics:")
         print(f"{'─'*50}")
         print(f"Accuracy:             {self.accuracy:.4f}")
+        print()
         print(f"Precision (Macro):    {self.precision_macro:.4f}")
         print(f"Precision (Micro):    {self.precision_micro:.4f}")
         print(f"Precision (Weighted): {self.precision_weighted:.4f}")
+        print()
         print(f"Recall (Macro):       {self.recall_macro:.4f}")
         print(f"Recall (Micro):       {self.recall_micro:.4f}")
         print(f"Recall (Weighted):    {self.recall_weighted:.4f}")
+        print()
         print(f"F1-Score (Macro):     {self.f1_macro:.4f}")
         print(f"F1-Score (Micro):     {self.f1_micro:.4f}")
         print(f"F1-Score (Weighted):  {self.f1_weighted:.4f}")
         
         print(f"\nPer-Class Metrics:")
-        print(f"{'─'*70}")
-        print(f"{'Class':<15} {'Precision':<10} {'Recall':<10} {'F1-Score':<10} {'Support':<10}")
-        print(f"{'─'*70}")
+        print(f"{'─'*80}")
+        print(f"{'Class':<20} {'Precision':<12} {'Recall':<12} {'F1-Score':<12} {'Support':<10}")
+        print(f"{'─'*80}")
         for i, class_name in enumerate(self.class_names):
             support = np.sum(self.all_true_labels == i)
-            print(f"{class_name:<15} {self.precision_per_class[i]:<10.4f} "
-                  f"{self.recall_per_class[i]:<10.4f} {self.f1_per_class[i]:<10.4f} {support:<10}")
+            print(f"{class_name:<20} {self.precision_per_class[i]:<12.4f} "
+                f"{self.recall_per_class[i]:<12.4f} {self.f1_per_class[i]:<12.4f} {support:<10}")
         
-        # Store metrics
-        self.metrics = {
-            'accuracy': self.accuracy,
-            'precision': {
-                'macro': self.precision_macro,
-                'micro': self.precision_micro,
-                'weighted': self.precision_weighted,
-                'per_class': self.precision_per_class.tolist()
-            },
-            'recall': {
-                'macro': self.recall_macro,
-                'micro': self.recall_micro,
-                'weighted': self.recall_weighted,
-                'per_class': self.recall_per_class.tolist()
-            },
-            'f1_score': {
-                'macro': self.f1_macro,
-                'micro': self.f1_micro,
-                'weighted': self.f1_weighted,
-                'per_class': self.f1_per_class.tolist()
-            },
-            'confusion_matrix': self.cm.tolist(),
-            'classification_report': self.classification_rep
-        }
+        print(f"\nConfusion Matrix:")
+        print(f"{'─'*50}")
+        print("Rows: True labels, Columns: Predicted labels")
+        print(self.cm)
     
-    def organize_images(self):
-        """Organize images into folders by predicted class"""
-        organization_log = []
-        organized_count = 0
-        error_count = 0
+    def create_confusion_matrix_plot(self):
+        """Create and save confusion matrix visualization"""
+        plt.figure(figsize=(10, 8))
         
-        # Statistics
-        class_counts = {class_name: 0 for class_name in self.class_names}
-        correct_predictions = 0
+        # Calculate percentages for better readability
+        cm_percent = self.cm.astype('float') / self.cm.sum(axis=1)[:, np.newaxis] * 100
         
-        for i, (image_path, pred_label, confidence) in enumerate(
-            zip(self.all_image_paths, self.all_predictions, self.all_confidences)
-        ):
-            try:
-                # Get predicted class name
-                pred_class = self.class_names[pred_label]
-                class_counts[pred_class] += 1
-                
-                # Check if prediction is correct (if ground truth available)
-                is_correct = None
-                true_class = None
-                if self.has_ground_truth:
-                    true_label = self.all_true_labels[i]
-                    true_class = self.class_names[true_label]
-                    is_correct = (pred_label == true_label)
-                    if is_correct:
-                        correct_predictions += 1
-                
-                # Create new filename with prediction info
-                filename = os.path.basename(image_path)
-                base_name, ext = os.path.splitext(filename)
-                
-                if self.has_ground_truth:
-                    correct_str = "correct" if is_correct else "wrong"
-                    new_filename = f"{base_name}_pred-{pred_class}_true-{true_class}_{correct_str}_conf-{confidence:.3f}{ext}"
-                else:
-                    new_filename = f"{base_name}_pred-{pred_class}_conf-{confidence:.3f}{ext}"
-                
-                # Destination path
-                dest_path = os.path.join(self.classified_dir, pred_class, new_filename)
-                
-                # Copy image
-                shutil.copy2(image_path, dest_path)
-                organized_count += 1
-                
-                # Log entry
-                log_entry = {
-                    'original_path': image_path,
-                    'new_path': dest_path,
-                    'predicted_class': pred_class,
-                    'confidence': float(confidence),
-                    'prediction_index': int(pred_label)
-                }
-                
-                if self.has_ground_truth:
-                    log_entry.update({
-                        'true_class': true_class,
-                        'true_index': int(self.all_true_labels[i]),
-                        'is_correct': is_correct
-                    })
-                
-                organization_log.append(log_entry)
-                
-            except Exception as e:
-                print(f"Error organizing image {image_path}: {str(e)}")
-                error_count += 1
+        # Create annotations with both count and percentage
+        annot = np.empty_like(self.cm).astype(str)
+        for i in range(self.cm.shape[0]):
+            for j in range(self.cm.shape[1]):
+                count = self.cm[i, j]
+                percent = cm_percent[i, j]
+                annot[i, j] = f'{count}\n({percent:.1f}%)'
         
-        # Print summary
-        print(f"\n{'='*60}")
-        print("IMAGE ORGANIZATION SUMMARY")
-        print(f"{'='*60}")
-        print(f"Successfully organized: {organized_count} images")
-        if error_count > 0:
-            print(f"Errors encountered: {error_count} images")
+        # Create heatmap
+        sns.heatmap(self.cm, 
+                    annot=annot, 
+                    fmt='', 
+                    cmap='Blues',
+                    xticklabels=self.class_names, 
+                    yticklabels=self.class_names,
+                    cbar_kws={'label': 'Number of samples'})
         
-        if self.has_ground_truth:
-            accuracy_org = correct_predictions / len(self.all_predictions)
-            print(f"Correct predictions: {correct_predictions}/{len(self.all_predictions)} ({accuracy_org:.1%})")
-        
-        print(f"\nImages organized by predicted class:")
-        print(f"{'─'*40}")
-        for class_name, count in class_counts.items():
-            percentage = (count / len(self.all_predictions)) * 100
-            print(f"{class_name:<20} {count:<8} ({percentage:.1f}%)")
-        
-        # # Save organization log
-        # log_file = os.path.join(self.output_dir, "organization_log.json")
-        # with open(log_file, 'w', encoding='utf-8') as f:
-        #     json.dump(organization_log, f, indent=2, ensure_ascii=False)
-        
-        # self.organization_log = organization_log
-        self.class_counts = class_counts
-        
-        return class_counts
-    
-    def create_visualizations(self):
-        """Create analysis charts"""
-        plt.style.use('default')
-        sns.set_palette("husl")
-        
-        if self.has_ground_truth:
-            # With ground truth: show confusion matrix and metrics
-            fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-            
-            # Confusion Matrix
-            sns.heatmap(self.cm, annot=True, fmt='d', cmap='Blues',
-                        xticklabels=self.class_names, yticklabels=self.class_names, ax=axes[0,0])
-            axes[0,0].set_title('Confusion Matrix', fontsize=14, fontweight='bold')
-            axes[0,0].set_xlabel('Predicted')
-            axes[0,0].set_ylabel('True')
-            
-            # Overall metrics comparison
-            metrics_data = {
-                'Precision': [self.precision_macro, self.precision_micro, self.precision_weighted],
-                'Recall': [self.recall_macro, self.recall_micro, self.recall_weighted],
-                'F1-Score': [self.f1_macro, self.f1_micro, self.f1_weighted]
-            }
-            
-            x = np.arange(3)
-            width = 0.25
-            
-            axes[0,1].bar(x - width, metrics_data['Precision'], width, label='Precision', alpha=0.8)
-            axes[0,1].bar(x, metrics_data['Recall'], width, label='Recall', alpha=0.8)
-            axes[0,1].bar(x + width, metrics_data['F1-Score'], width, label='F1-Score', alpha=0.8)
-            
-            axes[0,1].set_xlabel('Averaging Method')
-            axes[0,1].set_ylabel('Score')
-            axes[0,1].set_title('Overall Metrics Comparison')
-            axes[0,1].set_xticks(x)
-            axes[0,1].set_xticklabels(['Macro', 'Micro', 'Weighted'])
-            axes[0,1].legend()
-            axes[0,1].grid(True, alpha=0.3)
-            
-            # Per-class metrics
-            x = np.arange(len(self.class_names))
-            width = 0.25
-            
-            axes[0,2].bar(x - width, self.precision_per_class, width, label='Precision', alpha=0.8)
-            axes[0,2].bar(x, self.recall_per_class, width, label='Recall', alpha=0.8)
-            axes[0,2].bar(x + width, self.f1_per_class, width, label='F1-Score', alpha=0.8)
-            
-            axes[0,2].set_xlabel('Classes')
-            axes[0,2].set_ylabel('Score')
-            axes[0,2].set_title('Per-Class Metrics')
-            axes[0,2].set_xticks(x)
-            axes[0,2].set_xticklabels(self.class_names, rotation=45, ha='right')
-            axes[0,2].legend()
-            axes[0,2].grid(True, alpha=0.3)
-            
-        else:
-            # Without ground truth: focus on distribution and confidence
-            fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-        
-        # Class Distribution (both cases)
-        subplot_idx = (1, 0) if self.has_ground_truth else (0, 0)
-        classes = list(self.class_counts.keys())
-        counts = list(self.class_counts.values())
-        percentages = [count/sum(counts)*100 for count in counts]
-        
-        bars = axes[subplot_idx].bar(classes, counts, alpha=0.7, color=sns.color_palette("husl", len(classes)))
-        axes[subplot_idx].set_xlabel('Predicted Classes', fontsize=12)
-        axes[subplot_idx].set_ylabel('Number of Images', fontsize=12)
-        axes[subplot_idx].set_title('Distribution of Predicted Classes', fontsize=14, fontweight='bold')
-        axes[subplot_idx].tick_params(axis='x', rotation=45)
-        
-        # Add percentage labels on bars
-        for bar, percentage in zip(bars, percentages):
-            height = bar.get_height()
-            axes[subplot_idx].text(bar.get_x() + bar.get_width()/2., height + max(counts)*0.01,
-                    f'{percentage:.1f}%', ha='center', va='bottom')
-        
-        # Confidence Distribution
-        subplot_idx = (1, 1) if self.has_ground_truth else (0, 1)
-        axes[subplot_idx].hist(self.all_confidences, bins=50, alpha=0.7, edgecolor='black', color='skyblue')
-        axes[subplot_idx].axvline(np.mean(self.all_confidences), color='red', linestyle='--', 
-                    label=f'Mean: {np.mean(self.all_confidences):.3f}')
-        axes[subplot_idx].axvline(np.median(self.all_confidences), color='orange', linestyle='--', 
-                    label=f'Median: {np.median(self.all_confidences):.3f}')
-        axes[subplot_idx].set_xlabel('Prediction Confidence')
-        axes[subplot_idx].set_ylabel('Frequency')
-        axes[subplot_idx].set_title('Overall Confidence Distribution')
-        axes[subplot_idx].legend()
-        axes[subplot_idx].grid(True, alpha=0.3)
-        
-        # Confidence by Class
-        subplot_idx = (1, 2) if self.has_ground_truth else (0, 2)
-        class_confidences = []
-        class_labels = []
-        
-        for i, class_name in enumerate(self.class_names):
-            class_mask = self.all_predictions == i
-            if np.sum(class_mask) > 0:
-                class_conf = self.all_confidences[class_mask]
-                class_confidences.extend(class_conf)
-                class_labels.extend([class_name] * len(class_conf))
-        
-        if class_confidences:
-            conf_df = pd.DataFrame({
-                'confidence': class_confidences,
-                'class': class_labels
-            })
-            sns.boxplot(data=conf_df, y='class', x='confidence', ax=axes[subplot_idx])
-            axes[subplot_idx].set_title('Confidence Distribution by Class')
-            axes[subplot_idx].set_xlabel('Confidence')
-        
-        # Confidence Ranges
-        if not self.has_ground_truth:
-            confidence_ranges = ['0.0-0.2', '0.2-0.4', '0.4-0.6', '0.6-0.8', '0.8-1.0']
-            range_counts = [
-                np.sum((self.all_confidences >= 0.0) & (self.all_confidences < 0.2)),
-                np.sum((self.all_confidences >= 0.2) & (self.all_confidences < 0.4)),
-                np.sum((self.all_confidences >= 0.4) & (self.all_confidences < 0.6)),
-                np.sum((self.all_confidences >= 0.6) & (self.all_confidences < 0.8)),
-                np.sum((self.all_confidences >= 0.8) & (self.all_confidences <= 1.0))
-            ]
-            
-            colors = ['red', 'orange', 'yellow', 'lightgreen', 'green']
-            bars = axes[1,0].bar(confidence_ranges, range_counts, color=colors, alpha=0.7)
-            axes[1,0].set_xlabel('Confidence Range')
-            axes[1,0].set_ylabel('Number of Images')
-            axes[1,0].set_title('Images by Confidence Range')
-            axes[1,0].tick_params(axis='x', rotation=45)
-            
-            # Add count labels on bars
-            for bar in bars:
-                height = bar.get_height()
-                axes[1,0].text(bar.get_x() + bar.get_width()/2., height + max(range_counts)*0.01,
-                        f'{int(height)}', ha='center', va='bottom')
-            
-            # Hide unused subplots
-            axes[1,1].axis('off')
-            axes[1,2].axis('off')
+        plt.title('Confusion Matrix\n(Count and Percentage)', fontsize=16, fontweight='bold', pad=20)
+        plt.xlabel('Predicted Label', fontsize=12)
+        plt.ylabel('True Label', fontsize=12)
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
         
         plt.tight_layout()
         
-        filename = 'evaluation_analysis.png' if self.has_ground_truth else 'prediction_analysis.png'
-        plt.savefig(os.path.join(self.output_dir, filename), dpi=300, bbox_inches='tight')
+        # Save plot
+        plot_file = os.path.join(self.output_dir, 'confusion_matrix.png')
+        plt.savefig(plot_file, dpi=300, bbox_inches='tight')
         plt.show()
+        
+        print(f"Confusion matrix plot saved: {plot_file}")
+    
+    def create_metrics_comparison_plot(self):
+        """Create metrics comparison visualization"""
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+        
+        # Overall metrics comparison
+        metrics_data = {
+            'Macro': [self.precision_macro, self.recall_macro, self.f1_macro],
+            'Micro': [self.precision_micro, self.recall_micro, self.f1_micro],
+            'Weighted': [self.precision_weighted, self.recall_weighted, self.f1_weighted]
+        }
+        
+        x = np.arange(3)
+        width = 0.25
+        
+        ax1.bar(x - width, metrics_data['Macro'], width, label='Macro', alpha=0.8)
+        ax1.bar(x, metrics_data['Micro'], width, label='Micro', alpha=0.8)
+        ax1.bar(x + width, metrics_data['Weighted'], width, label='Weighted', alpha=0.8)
+        
+        ax1.set_xlabel('Metrics', fontsize=12)
+        ax1.set_ylabel('Score', fontsize=12)
+        ax1.set_title('Overall Metrics Comparison', fontsize=14, fontweight='bold')
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(['Precision', 'Recall', 'F1-Score'])
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        ax1.set_ylim(0, 1)
+        
+        # Per-class metrics
+        x = np.arange(len(self.class_names))
+        width = 0.25
+        
+        ax2.bar(x - width, self.precision_per_class, width, label='Precision', alpha=0.8)
+        ax2.bar(x, self.recall_per_class, width, label='Recall', alpha=0.8)
+        ax2.bar(x + width, self.f1_per_class, width, label='F1-Score', alpha=0.8)
+        
+        ax2.set_xlabel('Classes', fontsize=12)
+        ax2.set_ylabel('Score', fontsize=12)
+        ax2.set_title('Per-Class Metrics', fontsize=14, fontweight='bold')
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(self.class_names, rotation=45, ha='right')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+        ax2.set_ylim(0, 1)
+        
+        plt.tight_layout()
+        
+        # Save plot
+        plot_file = os.path.join(self.output_dir, 'metrics_comparison.png')
+        plt.savefig(plot_file, dpi=300, bbox_inches='tight')
+        plt.show()
+        
+        print(f"Metrics comparison plot saved: {plot_file}")
     
     def save_results(self):
-        """Save detailed results"""
+        """Save evaluation results to text file"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        # 1. Text summary
-        prefix = 'evaluation' if self.has_ground_truth else 'prediction'
-        results_file = os.path.join(self.output_dir, f'{prefix}_results_{timestamp}.txt')
+        results_file = os.path.join(self.output_dir, f'evaluation_results_{timestamp}.txt')
         
         with open(results_file, 'w', encoding='utf-8') as f:
-            title = "MODEL EVALUATION RESULTS" if self.has_ground_truth else "IMAGE CLASSIFICATION RESULTS"
-            f.write(f"{title}\n")
-            f.write(f"{'='*60}\n")
+            f.write("MODEL EVALUATION RESULTS\n")
+            f.write("=" * 70 + "\n")
             f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"Model: {self.model_path}\n")
             f.write(f"Data Folder: {self.data_dir}\n")
             f.write(f"Total Images: {len(self.all_predictions)}\n")
-            f.write(f"Classes: {self.class_names}\n")
-            f.write(f"Has Ground Truth: {self.has_ground_truth}\n\n")
+            f.write(f"Classes: {self.class_names}\n\n")
             
-            if self.has_ground_truth:
-                f.write(f"EVALUATION METRICS:\n")
-                f.write(f"{'─'*50}\n")
-                f.write(f"Accuracy:             {self.accuracy:.4f}\n")
-                f.write(f"Precision (Macro):    {self.precision_macro:.4f}\n")
-                f.write(f"Precision (Micro):    {self.precision_micro:.4f}\n")
-                f.write(f"Precision (Weighted): {self.precision_weighted:.4f}\n")
-                f.write(f"Recall (Macro):       {self.recall_macro:.4f}\n")
-                f.write(f"Recall (Micro):       {self.recall_micro:.4f}\n")
-                f.write(f"Recall (Weighted):    {self.recall_weighted:.4f}\n")
-                f.write(f"F1-Score (Macro):     {self.f1_macro:.4f}\n")
-                f.write(f"F1-Score (Micro):     {self.f1_micro:.4f}\n")
-                f.write(f"F1-Score (Weighted):  {self.f1_weighted:.4f}\n\n")
-                
-                f.write(f"PER-CLASS METRICS:\n")
-                f.write(f"{'─'*70}\n")
-                for i, class_name in enumerate(self.class_names):
-                    support = np.sum(self.all_true_labels == i)
-                    f.write(f"{class_name}: Precision={self.precision_per_class[i]:.4f}, "
-                            f"Recall={self.recall_per_class[i]:.4f}, F1={self.f1_per_class[i]:.4f}, "
-                            f"Support={support}\n")
+            f.write("OVERALL METRICS:\n")
+            f.write("─" * 50 + "\n")
+            f.write(f"Accuracy:             {self.accuracy:.4f}\n\n")
+            f.write(f"Precision (Macro):    {self.precision_macro:.4f}\n")
+            f.write(f"Precision (Micro):    {self.precision_micro:.4f}\n")
+            f.write(f"Precision (Weighted): {self.precision_weighted:.4f}\n\n")
+            f.write(f"Recall (Macro):       {self.recall_macro:.4f}\n")
+            f.write(f"Recall (Micro):       {self.recall_micro:.4f}\n")
+            f.write(f"Recall (Weighted):    {self.recall_weighted:.4f}\n\n")
+            f.write(f"F1-Score (Macro):     {self.f1_macro:.4f}\n")
+            f.write(f"F1-Score (Micro):     {self.f1_micro:.4f}\n")
+            f.write(f"F1-Score (Weighted):  {self.f1_weighted:.4f}\n\n")
             
-            f.write(f"\nCLASS DISTRIBUTION:\n")
-            f.write(f"{'─'*40}\n")
-            for class_name, count in self.class_counts.items():
-                percentage = count / len(self.all_predictions) * 100
-                f.write(f"{class_name:<20} {count:<8} ({percentage:.1f}%)\n")
+            f.write("PER-CLASS METRICS:\n")
+            f.write("─" * 80 + "\n")
+            f.write(f"{'Class':<20} {'Precision':<12} {'Recall':<12} {'F1-Score':<12} {'Support':<10}\n")
+            f.write("─" * 80 + "\n")
+            for i, class_name in enumerate(self.class_names):
+                support = np.sum(self.all_true_labels == i)
+                f.write(f"{class_name:<20} {self.precision_per_class[i]:<12.4f} "
+                        f"{self.recall_per_class[i]:<12.4f} {self.f1_per_class[i]:<12.4f} {support:<10}\n")
             
-            f.write(f"\nCONFIDENCE STATISTICS:\n")
-            f.write(f"{'─'*40}\n")
-            f.write(f"Mean Confidence:      {np.mean(self.all_confidences):.4f}\n")
-            f.write(f"Median Confidence:    {np.median(self.all_confidences):.4f}\n")
-            f.write(f"Std Confidence:       {np.std(self.all_confidences):.4f}\n")
-            f.write(f"Min Confidence:       {np.min(self.all_confidences):.4f}\n")
-            f.write(f"Max Confidence:       {np.max(self.all_confidences):.4f}\n")
+            f.write(f"\nCONFUSION MATRIX:\n")
+            f.write("─" * 50 + "\n")
+            f.write("Rows: True labels, Columns: Predicted labels\n")
+            f.write(f"Classes: {self.class_names}\n\n")
             
-            # Confidence ranges
-            conf_ranges = [
-                (0.0, 0.2, "Very Low"),
-                (0.2, 0.4, "Low"),
-                (0.4, 0.6, "Medium"),
-                (0.6, 0.8, "High"),
-                (0.8, 1.0, "Very High")
-            ]
+            # Write confusion matrix with class names
+            f.write("     ")
+            for class_name in self.class_names:
+                f.write(f"{class_name[:8]:<10}")
+            f.write("\n")
             
-            f.write(f"\nCONFIDENCE RANGES:\n")
-            f.write(f"{'─'*40}\n")
-            for low, high, label in conf_ranges:
-                count = np.sum((self.all_confidences >= low) & (self.all_confidences < high if high < 1.0 else self.all_confidences <= high))
-                percentage = count / len(self.all_confidences) * 100
-                f.write(f"{label} ({low:.1f}-{high:.1f}): {count} ({percentage:.1f}%)\n")
+            for i, class_name in enumerate(self.class_names):
+                f.write(f"{class_name[:8]:<5}")
+                for j in range(len(self.class_names)):
+                    f.write(f"{self.cm[i][j]:<10}")
+                f.write("\n")
         
-        # # 2. JSON summary
-        # json_file = os.path.join(self.output_dir, f'{prefix}_summary_{timestamp}.json')
-        
-        # summary_data = {
-        #     'metadata': {
-        #         'timestamp': datetime.now().isoformat(),
-        #         'model_path': self.model_path,
-        #         'data_directory': self.data_dir,
-        #         'output_directory': self.output_dir,
-        #         'has_ground_truth': self.has_ground_truth,
-        #         'total_images': len(self.all_predictions),
-        #         'class_names': self.class_names,
-        #         'batch_size': self.batch_size,
-        #         'device': str(self.device)
-        #     },
-        #     'class_distribution': self.class_counts,
-        #     'confidence_statistics': {
-        #         'mean': float(np.mean(self.all_confidences)),
-        #         'median': float(np.median(self.all_confidences)),
-        #         'std': float(np.std(self.all_confidences)),
-        #         'min': float(np.min(self.all_confidences)),
-        #         'max': float(np.max(self.all_confidences)),
-        #         'quartiles': {
-        #             'q25': float(np.percentile(self.all_confidences, 25)),
-        #             'q50': float(np.percentile(self.all_confidences, 50)),
-        #             'q75': float(np.percentile(self.all_confidences, 75))
-        #         }
-        #     }
-        # }
-        
-        # if self.has_ground_truth:
-        #     summary_data['evaluation_metrics'] = self.metrics
-        
-        # with open(json_file, 'w', encoding='utf-8') as f:
-        #     json.dump(summary_data, f, indent=2, ensure_ascii=False)
-        
-        # # 3. CSV with detailed predictions
-        # csv_file = os.path.join(self.output_dir, f'{prefix}_predictions_{timestamp}.csv')
-        
-        # # Prepare data for CSV
-        # csv_data = []
-        # for i in range(len(self.all_predictions)):
-        #     row = {
-        #         'image_path': self.all_image_paths[i],
-        #         'predicted_class': self.class_names[self.all_predictions[i]],
-        #         'predicted_index': int(self.all_predictions[i]),
-        #         'confidence': float(self.all_confidences[i])
-        #     }
-            
-        #     # Add probability for each class
-        #     for j, class_name in enumerate(self.class_names):
-        #         row[f'prob_{class_name}'] = float(self.all_probabilities[i][j])
-            
-        #     if self.has_ground_truth:
-        #         row.update({
-        #             'true_class': self.class_names[self.all_true_labels[i]],
-        #             'true_index': int(self.all_true_labels[i]),
-        #             'is_correct': bool(self.all_predictions[i] == self.all_true_labels[i])
-        #         })
-            
-        #     csv_data.append(row)
-        
-        # # Save CSV
-        # df = pd.DataFrame(csv_data)
-        # df.to_csv(csv_file, index=False, encoding='utf-8')
-        
-        # print(f"\nResults saved:")
-        # print(f"- Text summary: {results_file}")
-        # print(f"- JSON summary: {json_file}")
-        # print(f"- Detailed CSV: {csv_file}")
-        # print(f"- Organization log: organization_log.json")
-        
-        # return {
-        #     'text_file': results_file,
-        #     'json_file': json_file,
-        #     'csv_file': csv_file,
-        #     'summary_data': summary_data
-        # }
+        print(f"Results saved to: {results_file}")
+        return results_file
     
-    def run_complete_analysis(self):
-        """Run the complete analysis pipeline"""
-        print("Starting complete image classification analysis...")
-        print("=" * 60)
+    def run_evaluation(self):
+        """Run the complete evaluation pipeline"""
+        print("Starting model evaluation...")
+        print("=" * 70)
         
         try:
             # Step 1: Prepare data
@@ -718,42 +413,70 @@ class ImageClassifier:
             print("\nStep 2: Loading model...")
             self.load_model()
             
-            # Step 3: Run predictions and evaluation
+            # Step 3: Run predictions
             print("\nStep 3: Running predictions...")
-            self.predict_and_evaluate()
+            self.predict()
             
-            # Step 4: Create visualizations
-            print("\nStep 4: Creating visualizations...")
-            self.create_visualizations()
+            # Step 4: Calculate metrics
+            print("\nStep 4: Calculating metrics...")
+            self.calculate_metrics()
             
-            # Step 5: Save results
-            print("\nStep 5: Saving results...")
-            results = self.save_results()
+            # Step 5: Create visualizations
+            print("\nStep 5: Creating visualizations...")
+            self.create_confusion_matrix_plot()
+            self.create_metrics_comparison_plot()
             
-            print("\n" + "=" * 60)
-            print("ANALYSIS COMPLETED SUCCESSFULLY!")
-            print("=" * 60)
+            # Step 6: Save results
+            print("\nStep 6: Saving results...")
+            results_file = self.save_results()
             
-            return results
+            print("\n" + "=" * 70)
+            print("EVALUATION COMPLETED SUCCESSFULLY!")
+            print("=" * 70)
+            
+            return {
+                'accuracy': self.accuracy,
+                'precision': {
+                    'macro': self.precision_macro,
+                    'micro': self.precision_micro,
+                    'weighted': self.precision_weighted,
+                    'per_class': self.precision_per_class.tolist()
+                },
+                'recall': {
+                    'macro': self.recall_macro,
+                    'micro': self.recall_micro, 
+                    'weighted': self.recall_weighted,
+                    'per_class': self.recall_per_class.tolist()
+                },
+                'f1_score': {
+                    'macro': self.f1_macro,
+                    'micro': self.f1_micro,
+                    'weighted': self.f1_weighted,
+                    'per_class': self.f1_per_class.tolist()
+                },
+                'confusion_matrix': self.cm.tolist(),
+                'results_file': results_file
+            }
             
         except Exception as e:
-            print(f"\nError during analysis: {str(e)}")
+            print(f"\nError during evaluation: {str(e)}")
             raise e
 
 
 def main():
-    class_names = ["dieu_mua_truyen_thong", "don_ca_tai_tu", "dua_bo_bay_nui", "le_hoi_nghinh_ong"]  # Define your class names
-    
-    classifier_pred = ImageClassifier(
-        model_path=r"C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\model\best_convnext_fastkan.pth",
-        data_dir=r"C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\data\test",  # Single folder with images
-        output_dir=r"C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\test\prediction_results_for_basic_data_fastkan",
-        class_names=class_names,
+    evaluator = SimpleImageEvaluator(
+        model_path=r"C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\model\efficientnetv2_fastkan_best_model.pth",
+        data_dir=r"C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\data\test",
+        output_dir=r"C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\test\efficientnetv2_fastkan_evaluation_results",
         has_ground_truth=True,
         batch_size=32
     )
     
-    results_eval = classifier_pred.run_complete_analysis()
+    results = evaluator.run_evaluation()
+    print(f"\nFinal Results Summary:")
+    print(f"Accuracy: {results['accuracy']:.4f}")
+    print(f"Macro F1: {results['f1_score']['macro']:.4f}")
+    print(f"Weighted F1: {results['f1_score']['weighted']:.4f}")
 
 
 if __name__ == "__main__":

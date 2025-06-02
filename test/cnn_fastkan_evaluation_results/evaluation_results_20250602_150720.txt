@@ -1,0 +1,57 @@
+MODEL EVALUATION RESULTS
+======================================================================
+Timestamp: 2025-06-02 15:07:20
+Model: C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\model\cnn_fastkan_best_model.pth
+Data Folder: C:\Users\HP\OneDrive\Documents\Dang\CourseFile\Luận Văn\code\data\test
+Total Images: 2050
+Classes: ['cho-noi-cai-rang', 'dieu-mua-truyen-thong', 'don-ca-tai-tu', 'dua-bo-bay-nui', 'le-hoi-nghinh-ong', 'nghe-dan-tre', 'nghe-det-chieu', 'nghe-thuat-san-khau-du-ke-khmer', 'ok-om-bok', 'phong-tuc-cuoi-truyen-thong', 'via-ba-chua-xu-nui-sam']
+
+OVERALL METRICS:
+──────────────────────────────────────────────────
+Accuracy:             0.4439
+
+Precision (Macro):    0.4296
+Precision (Micro):    0.4439
+Precision (Weighted): 0.4320
+
+Recall (Macro):       0.4356
+Recall (Micro):       0.4439
+Recall (Weighted):    0.4439
+
+F1-Score (Macro):     0.4004
+F1-Score (Micro):     0.4439
+F1-Score (Weighted):  0.4060
+
+PER-CLASS METRICS:
+────────────────────────────────────────────────────────────────────────────────
+Class                Precision    Recall       F1-Score     Support   
+────────────────────────────────────────────────────────────────────────────────
+cho-noi-cai-rang     0.3796       0.4362       0.4059       188       
+dieu-mua-truyen-thong 0.4872       0.2235       0.3065       170       
+don-ca-tai-tu        0.0625       0.0116       0.0196       172       
+dua-bo-bay-nui       0.5778       0.3095       0.4031       168       
+le-hoi-nghinh-ong    0.3846       0.6566       0.4851       198       
+nghe-dan-tre         0.3551       0.8085       0.4935       188       
+nghe-det-chieu       0.4314       0.2178       0.2895       202       
+nghe-thuat-san-khau-du-ke-khmer 0.8526       0.8804       0.8663       184       
+ok-om-bok            0.2000       0.0674       0.1008       178       
+phong-tuc-cuoi-truyen-thong 0.6049       0.4757       0.5326       206       
+via-ba-chua-xu-nui-sam 0.3898       0.7041       0.5018       196       
+
+CONFUSION MATRIX:
+──────────────────────────────────────────────────
+Rows: True labels, Columns: Predicted labels
+Classes: ['cho-noi-cai-rang', 'dieu-mua-truyen-thong', 'don-ca-tai-tu', 'dua-bo-bay-nui', 'le-hoi-nghinh-ong', 'nghe-dan-tre', 'nghe-det-chieu', 'nghe-thuat-san-khau-du-ke-khmer', 'ok-om-bok', 'phong-tuc-cuoi-truyen-thong', 'via-ba-chua-xu-nui-sam']
+
+     cho-noi-  dieu-mua  don-ca-t  dua-bo-b  le-hoi-n  nghe-dan  nghe-det  nghe-thu  ok-om-bo  phong-tu  via-ba-c  
+cho-noi-82        0         0         6         52        18        2         0         8         0         20        
+dieu-mua6         38        8         2         36        16        4         4         12        12        32        
+don-ca-t12        8         2         6         22        46        18        18        4         12        24        
+dua-bo-b36        0         0         52        2         64        10        0         2         0         2         
+le-hoi-n20        0         0         0         130       0         0         0         0         12        36        
+nghe-dan8         0         2         4         6         152       6         0         2         2         6         
+nghe-det8         4         8         6         10        88        44        0         6         16        12        
+nghe-thu0         8         6         2         0         0         0         162       0         6         0         
+ok-om-bo24        10        0         10        34        8         8         2         12        4         66        
+phong-tu6         8         6         2         24        28        8         2         6         98        18        
+via-ba-c14        2         0         0         22        8         2         2         8         0         138       

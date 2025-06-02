@@ -6,15 +6,14 @@ from torch.utils.data import DataLoader
 from torchsummary import summary
 import gc
 import matplotlib.pyplot as plt
-import math
 
 from version.kan.kan import KANLinear
 
 class BasicCNNKAN(nn.Module):
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes=20):
         super(BasicCNNKAN, self).__init__()
-        
-        # Convolutional layers - 3 layers with 3x3 kernels
+
+        # Simple 3-layer CNN
         self.conv_layers = nn.Sequential(
             # First conv layer
             nn.Conv2d(3, 64, kernel_size=3, padding=1),
@@ -38,7 +37,7 @@ class BasicCNNKAN(nn.Module):
             nn.Dropout2d(0.25),
         )
         
-        # Global Average Pooling
+        # Global Average Pooling to reduce spatial dimensions
         self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
         
         # KAN layers for classification

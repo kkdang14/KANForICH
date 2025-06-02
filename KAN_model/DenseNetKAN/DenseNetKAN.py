@@ -5,13 +5,13 @@ from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import gc
-import math
 
-from version.kan.kan import KANLinear  # Assuming KANLinear is defined in version.kan.kan
+
+from version.kan.kan import KANLinear
 from sklearn.metrics import classification_report, confusion_matrix
 
 class DenseNetKAN(nn.Module):
-    def __init__(self, hidden_dims=None, num_classes=10, pretrained=True, freeze_backbone=True, densenet_version='121'):
+    def __init__(self, hidden_dims=None, num_classes=11, pretrained=True, freeze_backbone=True, densenet_version='121'):
         super(DenseNetKAN, self).__init__()
         
         # Load pre-trained DenseNet model
@@ -40,9 +40,9 @@ class DenseNetKAN(nn.Module):
             hidden_dims = [512, 256]
         
         # KAN layers for classification
-        self.kan1 = KANLinear(256, 128)
+        self.kan1 = KANLinear(num_features, 256)
         self.dropout = nn.Dropout(0.5)
-        self.kan2 = KANLinear(128, num_classes)
+        self.kan2 = KANLinear(256, num_classes)
 
     def forward(self, x):
         x = self.densenet(x)

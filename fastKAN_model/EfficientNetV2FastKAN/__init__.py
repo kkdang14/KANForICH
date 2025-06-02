@@ -1,1 +1,1 @@
-from main_EfficientNetV2FastKAN import EfficientNetV2FastKAN
+from .EfficientNetV2FastKAN import EfficientNetV2FastKAN

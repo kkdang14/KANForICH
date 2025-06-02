@@ -1,1 +1,1 @@
-from DenseNetKAN import DenseNetKAN
+from .DenseNetKAN import DenseNetKAN
