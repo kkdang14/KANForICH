@@ -1,0 +1,111 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import datasets, transforms, models
+from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+import gc
+
+
+from version.kan.kan import KANLinear
+from sklearn.metrics import classification_report, confusion_matrix
+
+class ResNetKAN(nn.Module):
+    def __init__(self, hidden_dims=None, num_classes=11, pretrained=True, freeze_backbone=True, resnet_version='50'):
+        super(ResNetKAN, self).__init__()
+        
+        # Load pre-trained DenseNet model
+        if resnet_version == '50':
+            self.densenet = models.resnet50(pretrained=pretrained)
+        elif resnet_version == '101':
+            self.densenet = models.resnet101(pretrained=pretrained)
+        elif resnet_version == '152':
+            self.densenet = models.resnet152(pretrained=pretrained)
+        else:
+            raise ValueError(f"Unsupported DenseNet version: {resnet_version}")
+
+        # Freeze DenseNet layers if specified
+        if freeze_backbone:
+            for param in self.resnet.parameters():
+                param.requires_grad = False
+
+        # Get the feature dimension from DenseNet classifier
+        num_features = self.resnet.classifier.in_features
+        self.resnet.classifier = nn.Identity()  # Remove the classifier
+        
+        # Default hidden dimensions if not provided
+        if hidden_dims is None:
+            hidden_dims = [512, 256]
+        
+        # KAN layers for classification
+        self.kan1 = KANLinear(num_features, 256)
+        self.dropout = nn.Dropout(0.5)
+        self.kan2 = KANLinear(256, num_classes)
+
+    def forward(self, x):
+        x = self.resnet(x)
+        x = x.view(x.size(0), -1)  # Flatten the tensor
+        
+        x = self.kan1(x)   
+        x = self.dropout(x)
+        x = self.kan2(x)
+        
+        return x
+
+def print_parameter_details(model):
+    total_params = 0
+    trainable_params = 0
+    
+    print("Layer-wise parameter count:")
+    print("-" * 60)
+    
+    for name, parameter in model.named_parameters():
+        params = parameter.numel()
+        total_params += params
+        
+        if parameter.requires_grad:
+            trainable_params += params
+            print(f"{name}: {params:,} (trainable)")
+        else:
+            print(f"{name}: {params:,} (frozen)")
+    
+    print("-" * 60)
+    print(f"Total parameters: {total_params:,}")
+    print(f"Trainable parameters: {trainable_params:,}")
+    print(f"Non-trainable parameters: {total_params - trainable_params:,}")
+
+def count_model_size(model):
+    """Calculate model size in MB"""
+    param_size = 0
+    buffer_size = 0
+    
+    for param in model.parameters():
+        param_size += param.nelement() * param.element_size()
+    
+    for buffer in model.buffers():
+        buffer_size += buffer.nelement() * buffer.element_size()
+    
+    size_mb = (param_size + buffer_size) / 1024 / 1024
+    return size_mb
+
+# Initialize device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+model = ResNetKAN().to(device)
+print(model)
+print_parameter_details(model)
+count_model_size(model)
+print(f"Model size: {count_model_size(model):.2f} MB")
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+print(f"Total trainable parameters: {count_parameters(model)}")
+
+# Clean up
+print("\nCleaning up...")
+gc.collect()
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+    
+print("Done! ResNet + Regular KAN implementation complete.")

@@ -19,6 +19,7 @@ from KAN_model.ConvnextKAN import ConvNeXtKAN
 from KAN_model.BasicCNNKAN import BasicCNNKAN
 from KAN_model.DenseNetKAN import DenseNetKAN
 from KAN_model.EfficientNetV2KAN import EfficientNetV2KAN
+from KAN_model.ResNetKAN import ResNetKAN
 
 class FlexibleDataset(Dataset):
     """Dataset that can handle both structured (with labels) and single folder (without labels)"""

@@ -1,0 +1,1 @@
+from .ResNetFastKAN import ResNetFastKAN

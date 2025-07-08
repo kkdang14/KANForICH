@@ -6,10 +6,10 @@ from torch.utils.data import DataLoader
 import os
 import matplotlib.pyplot as plt
 from datetime import datetime
-import json
 import numpy as np
+import json
 
-from KAN_model.EfficientNetV2KAN import EfficientNetV2KAN
+from FastKAN_model.ResNetFastKAN import ResNetFastKAN  
 
 class EarlyStopping:
     """Early stopping to stop training when validation loss doesn't improve."""
@@ -39,7 +39,7 @@ class EarlyStopping:
 
 class CheckpointManager:
     """Manages model checkpoints and training state."""
-    def __init__(self, checkpoint_dir, model_name="efficientnetv2_kan"):
+    def __init__(self, checkpoint_dir, model_name="resnet_kan"):
         self.checkpoint_dir = checkpoint_dir
         self.model_name = model_name
         os.makedirs(checkpoint_dir, exist_ok=True)
@@ -177,7 +177,7 @@ def validate(model, val_loader, criterion, device, epoch, config):
     print(f"Epoch {epoch+1}/{num_epochs} - Val Loss: {epoch_loss:.4f}, Val Acc: {epoch_acc:.2f}% [{epoch_progress:.1f}%]", end='\r', flush=True)
     
     return epoch_loss, epoch_acc
-    
+
 def save_training_config(config_path, config):
     """Save training configuration."""
     with open(config_path, 'w') as f:
@@ -279,7 +279,7 @@ def main():
     print(f"Train samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
 
     # Model, Loss, and Optimizer
-    model = EfficientNetV2KAN().to(device)
+    model = ResNetFastKAN().to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'])
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -294,7 +294,7 @@ def main():
         patience=config['early_stopping_patience'], 
         min_delta=config['early_stopping_min_delta']
     )
-    checkpoint_manager = CheckpointManager(config['checkpoint_dir'], "efficientnetv2_kan")
+    checkpoint_manager = CheckpointManager(config['checkpoint_dir'], "resnet_fastkan")
     
     # Check for existing checkpoint
     latest_checkpoint = checkpoint_manager.get_latest_checkpoint()
@@ -366,7 +366,7 @@ def main():
     )
     
     # Plot training history
-    plot_path = os.path.join(config['results_dir'], 'EfficientNetV2KAN_training_history.png')
+    plot_path = os.path.join(config['results_dir'], 'ResNetKAN_training_history.png')
     plot_training_history(train_losses, val_losses, train_accs, val_accs, plot_path)
     
     # Save final metrics

@@ -5,11 +5,11 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 from datetime import datetime
 import json
-import numpy as np
 
-from KAN_model.EfficientNetV2KAN import EfficientNetV2KAN
+from KAN_model.ResNetKAN import ResNetKAN  # Import your ResNetKAN model
 
 class EarlyStopping:
     """Early stopping to stop training when validation loss doesn't improve."""
@@ -39,13 +39,13 @@ class EarlyStopping:
 
 class CheckpointManager:
     """Manages model checkpoints and training state."""
-    def __init__(self, checkpoint_dir, model_name="efficientnetv2_kan"):
+    def __init__(self, checkpoint_dir, model_name="resnet_kan"):
         self.checkpoint_dir = checkpoint_dir
         self.model_name = model_name
         os.makedirs(checkpoint_dir, exist_ok=True)
         
     def save_checkpoint(self, epoch, model, optimizer, scheduler, train_losses, val_losses, 
-                    train_accs, val_accs, best_val_loss, is_best=False):
+                       train_accs, val_accs, best_val_loss, is_best=False):
         """Save training checkpoint."""
         checkpoint = {
             'epoch': epoch,
@@ -279,7 +279,7 @@ def main():
     print(f"Train samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
 
     # Model, Loss, and Optimizer
-    model = EfficientNetV2KAN().to(device)
+    model = ResNetKAN().to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'])
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -294,7 +294,7 @@ def main():
         patience=config['early_stopping_patience'], 
         min_delta=config['early_stopping_min_delta']
     )
-    checkpoint_manager = CheckpointManager(config['checkpoint_dir'], "efficientnetv2_kan")
+    checkpoint_manager = CheckpointManager(config['checkpoint_dir'], "resnet_kan")
     
     # Check for existing checkpoint
     latest_checkpoint = checkpoint_manager.get_latest_checkpoint()
@@ -366,7 +366,7 @@ def main():
     )
     
     # Plot training history
-    plot_path = os.path.join(config['results_dir'], 'EfficientNetV2KAN_training_history.png')
+    plot_path = os.path.join(config['results_dir'], 'ResNetKAN_training_history.png')
     plot_training_history(train_losses, val_losses, train_accs, val_accs, plot_path)
     
     # Save final metrics
