@@ -30,8 +30,8 @@ class ResNetFastKAN(nn.Module):
                 param.requires_grad = False
 
         # Get the feature dimension from resnet classifier
-        num_features = self.resnet.classifier.in_features
-        self.resnet.classifier = nn.Identity()  # Remove the classifier
+        num_features = self.resnet.fc.in_features
+        self.resnet.fc = nn.Identity()
         
         # Default hidden dimensions if not provided
         if hidden_dims is None:

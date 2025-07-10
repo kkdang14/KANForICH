@@ -16,11 +16,11 @@ class ResNetKAN(nn.Module):
         
         # Load pre-trained DenseNet model
         if resnet_version == '50':
-            self.densenet = models.resnet50(pretrained=pretrained)
+            self.resnet = models.resnet50(pretrained=pretrained)
         elif resnet_version == '101':
-            self.densenet = models.resnet101(pretrained=pretrained)
+            self.resnet = models.resnet101(pretrained=pretrained)
         elif resnet_version == '152':
-            self.densenet = models.resnet152(pretrained=pretrained)
+            self.resnet = models.resnet152(pretrained=pretrained)
         else:
             raise ValueError(f"Unsupported DenseNet version: {resnet_version}")
 
@@ -30,8 +30,8 @@ class ResNetKAN(nn.Module):
                 param.requires_grad = False
 
         # Get the feature dimension from DenseNet classifier
-        num_features = self.resnet.classifier.in_features
-        self.resnet.classifier = nn.Identity()  # Remove the classifier
+        num_features = self.resnet.fc.in_features
+        self.resnet.fc = nn.Identity()  # Remove the classifier
         
         # Default hidden dimensions if not provided
         if hidden_dims is None:
